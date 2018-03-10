@@ -5,6 +5,12 @@ import (
 	"errors"
 )
 
+var (
+	errDuplicateState     = errors.New("saga: duplicate state")
+	errInvalidStateChange = errors.New("saga: invalid state change")
+	errNoAggregator       = errors.New("saga: no aggregator found")
+)
+
 type smImpl struct {
 	aggMap       map[State]Aggregator
 	validChanges map[State]map[State]bool
@@ -13,7 +19,7 @@ type smImpl struct {
 func (s *smImpl) run(ctx context.Context, tx Transaction) (Transaction, error) {
 	agg := s.aggMap[tx.State()]
 	if agg == nil {
-		return nil, errors.New("saga: no aggregator found")
+		return nil, errNoAggregator
 	}
 
 	nextTx, err := agg.Execute(ctx, tx)
@@ -21,7 +27,7 @@ func (s *smImpl) run(ctx context.Context, tx Transaction) (Transaction, error) {
 		return nil, err
 	}
 	if !s.validChanges[tx.State()][nextTx.State()] {
-		return nil, errors.New("saga: invalid state change")
+		return nil, errInvalidStateChange
 	}
 
 	return nextTx, nil
@@ -29,7 +35,7 @@ func (s *smImpl) run(ctx context.Context, tx Transaction) (Transaction, error) {
 
 func (s *smImpl) addState(state State, agg Aggregator, validNextStates ...State) error {
 	if s.aggMap[state] != nil {
-		return errors.New("saga: duplicate state")
+		return errDuplicateState
 	}
 
 	s.aggMap[state] = agg

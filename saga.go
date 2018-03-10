@@ -139,4 +139,5 @@ func (l *nopLogger) Log(ctx context.Context, tx Transaction) error {
 	return nil
 }
 
-//go:generate mockery -name=Aggregator -case=underscore --inpkg
+//go:generate mockery -name=Aggregator -case=underscore -inpkg
+//go:generate mockery -name=Transaction -case=underscore -inpkg
