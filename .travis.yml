@@ -6,6 +6,9 @@ go:
   - "1.9.x"
   - "1.10.x"
 
+before_install:
+  - go get github.com/schrej/godacov
+
 script:
   - go test -v -race -coverprofile=coverage.out ./...
 
