@@ -1,3 +1,16 @@
+// Package saga is an implementation of saga design pattern for
+// error handling. It aims to solve distributed (business) transactions
+// without two-phase-commit as this does not scale in distributed systems.
+// The saga has responsibility to gain eventual consistency by calling
+// compensation steps in reverse order.
+//
+// This libary uses orchestration approach by a centralized state machine.
+// The implementation is insipred by this talk
+// https://www.youtube.com/watch?v=xDuwrtwYHu8. More documents
+// could be found at https://www.reactivedesignpatterns.com/patterns/saga.html
+// or https://msdn.microsoft.com/en-us/library/jj591569.aspx
+//
+// If you have any suggestion or comment, please feel free to open an issue on this
 package saga
 
 import (
@@ -47,11 +60,11 @@ type Activity struct {
 	Compensation    Aggregator
 }
 
-// Saga includes details of a saga
+// Config includes details of a saga
 // - InitState is the initial state
 // - Activities list of activities in this saga in order
 // - Logger is a logger to log state of a saga transaction
-type Saga struct {
+type Config struct {
 	InitState  State
 	Activities []Activity
 	Logger     Logger
@@ -68,6 +81,10 @@ type Executor struct {
 // It returns a transaction object after it's executed sucessfully
 // It returns error when failed to execute it
 func (e *Executor) Execute(ctx context.Context, tx Transaction) (Transaction, error) {
+	if tx == nil {
+		return nil, errors.New("saga: nil transaction")
+	}
+
 	for {
 		if e.finalState[tx.State()] {
 			return tx, nil
@@ -85,8 +102,8 @@ func (e *Executor) Execute(ctx context.Context, tx Transaction) (Transaction, er
 }
 
 // NewExecutor creates a new Executor for a saga
-func NewExecutor(saga Saga) (*Executor, error) {
-	if len(saga.Activities) == 0 {
+func NewExecutor(c Config) (*Executor, error) {
+	if len(c.Activities) == 0 {
 		return nil, errors.New("saga: no activity")
 	}
 
@@ -97,31 +114,32 @@ func NewExecutor(saga Saga) (*Executor, error) {
 		},
 		logger: &nopLogger{},
 		finalState: map[State]bool{
-			saga.Activities[0].RolledBackState:                   true,
-			saga.Activities[0].FailureState:                      true,
-			saga.Activities[len(saga.Activities)-1].SuccessState: true,
+			c.Activities[0].RolledBackState:                true,
+			c.Activities[0].FailureState:                   true,
+			c.Activities[len(c.Activities)-1].SuccessState: true,
 		},
 	}
 
-	if saga.Logger != nil {
-		e.logger = saga.Logger
+	if c.Logger != nil {
+		e.logger = c.Logger
 	}
 
 	// forward flow
-	prevState := saga.InitState
-	for _, a := range saga.Activities {
+	prevState := c.InitState
+	for _, a := range c.Activities {
 		if a.Aggregator == nil {
 			return nil, errors.New("saga: nil aggregator")
 		}
 		if err := e.sm.addState(prevState, a.Aggregator, a.SuccessState, a.FailureState); err != nil {
 			return nil, err
 		}
+		prevState = a.SuccessState
 	}
 
 	// backward, rollback flow
-	for i := 1; i < len(saga.Activities); i++ {
-		preA := saga.Activities[i-1]
-		curA := saga.Activities[i]
+	for i := 1; i < len(c.Activities); i++ {
+		preA := c.Activities[i-1]
+		curA := c.Activities[i]
 		if err := e.sm.addState(curA.FailureState, preA.Compensation, preA.RolledBackState); err != nil {
 			return nil, err
 		}
