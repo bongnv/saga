@@ -4,13 +4,14 @@
 // The saga has responsibility to gain eventual consistency by calling
 // compensation steps in reverse order.
 //
-// This libary uses orchestration approach by a centralized state machine.
-// The implementation is insipred by this talk
+// This library uses orchestration approach by a centralized state machine.
+// The implementation is inspired by this great talk
 // https://www.youtube.com/watch?v=xDuwrtwYHu8. More documents
 // could be found at https://www.reactivedesignpatterns.com/patterns/saga.html
 // or https://msdn.microsoft.com/en-us/library/jj591569.aspx
 //
-// If you have any suggestion or comment, please feel free to open an issue on this
+// If you have any suggestion or comment, please feel free to open an issue
+// on this github
 package saga
 
 import (
@@ -78,7 +79,7 @@ type Executor struct {
 }
 
 // Execute continue to process a saga transaction based on current state
-// It returns a transaction object after it's executed sucessfully
+// It returns a transaction object after it's executed successfully
 // It returns error when failed to execute it
 func (e *Executor) Execute(ctx context.Context, tx Transaction) (Transaction, error) {
 	if tx == nil {
