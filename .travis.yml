@@ -1,5 +1,13 @@
+sudo: false
 language: go
 
 go:
   - "1.8.x"
+  - "1.9.x"
   - "1.10.x"
+
+script:
+  - go test -v -race -coverprofile=coverage.out ./...
+
+after_success:
+  - godacov -t $CODACY_TOKEN -r ./coverage.out -c $TRAVIS_COMMIT
